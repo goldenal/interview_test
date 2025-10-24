@@ -27,11 +27,10 @@ class BiometricsRepository {
   final double _failureProbability;
   final Random _random;
 
-  Future<BiometricsPayload> fetchBiometrics({
-    bool simulateLargeDataset = false,
-  }) async {
+  Future<BiometricsPayload> fetchBiometrics(
+      {bool simulateLargeDataset = false, int count = 0}) async {
     await _injectLatency();
-    _maybeThrowFailure();
+    _maybeThrowFailure(count);
 
     final samples = await _loadSamples();
     final journals = await _loadJournals();
@@ -97,16 +96,15 @@ class BiometricsRepository {
     return Future<void>.delayed(duration);
   }
 
-  void _maybeThrowFailure() {
+  void _maybeThrowFailure(int count) {
     final roll = _random.nextDouble();
-    if (roll < _failureProbability) {
+    if (count % 3 == 0) {
       throw BiometricsLoadException('Failed to load biometrics data');
     }
   }
 
   List<JournalEntry> _sortJournals(List<JournalEntry> journals) {
-    final sorted = journals.toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+    final sorted = journals.toList()..sort((a, b) => a.date.compareTo(b.date));
     return sorted;
   }
 
@@ -129,7 +127,8 @@ class BiometricsRepository {
         final jitterHrv = _jitterDouble(sample.hrv, 2.5);
         final jitterRhr = _jitterInt(sample.rhr, 2);
         final jitterSteps = _jitterInt(sample.steps, 1800, lowerBound: 0);
-        final jitterSleep = _jitterInt(sample.sleepScore, 6, lowerBound: 0, upperBound: 100);
+        final jitterSleep =
+            _jitterInt(sample.sleepScore, 6, lowerBound: 0, upperBound: 100);
         expanded.add(BiometricSample(
           date: lastDate,
           hrv: jitterHrv,

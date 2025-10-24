@@ -68,6 +68,8 @@ class BiometricsDashboardController extends ChangeNotifier {
 
   List<JournalEntry> get journals => _payload?.journals ?? const [];
 
+  int count = 1;
+
   @override
   void dispose() {
     _rangeController?.removeListener(_onRangeControllerChanged);
@@ -85,7 +87,9 @@ class BiometricsDashboardController extends ChangeNotifier {
     try {
       final payload = await repository.fetchBiometrics(
         simulateLargeDataset: _simulateLargeDataset,
+        count: count,
       );
+      count++;
       _payload = payload;
       if (payload.samples.isEmpty) {
         _chartSamples = const [];
@@ -145,6 +149,8 @@ class BiometricsDashboardController extends ChangeNotifier {
   }
 
   void retry() {
+    count++;
+
     load(refresh: true);
   }
 
@@ -205,7 +211,8 @@ class BiometricsDashboardController extends ChangeNotifier {
     RollingStatsPoint? lastKnown;
     final aligned = <RollingStatsPoint>[];
     for (final sample in samples) {
-      final key = DateTime(sample.date.year, sample.date.month, sample.date.day);
+      final key =
+          DateTime(sample.date.year, sample.date.month, sample.date.day);
       final stat = statsMap[key] ?? lastKnown;
       if (stat != null) {
         aligned.add(
@@ -240,7 +247,8 @@ class BiometricsDashboardController extends ChangeNotifier {
     final end = _chartSamples.last.date;
     final startCandidate = end.subtract(Duration(days: _range.days - 1));
     final firstDate = _chartSamples.first.date;
-    _visibleStart = startCandidate.isBefore(firstDate) ? firstDate : startCandidate;
+    _visibleStart =
+        startCandidate.isBefore(firstDate) ? firstDate : startCandidate;
     _visibleEnd = end;
   }
 
