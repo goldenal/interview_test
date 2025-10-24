@@ -1,0 +1,27 @@
+[
+  {
+    "date": "2025-06-10",
+    "mood": 1,
+    "note": "Slept poorly"
+  },
+  {
+    "date": "2025-07-06",
+    "mood": 2,
+    "note": "Felt sluggish"
+  },
+  {
+    "date": "2025-07-21",
+    "mood": 5,
+    "note": "Great interval session"
+  },
+  {
+    "date": "2025-07-31",
+    "mood": 5,
+    "note": "PR on long run"
+  },
+  {
+    "date": "2025-08-12",
+    "mood": 3,
+    "note": "Travel day"
+  }
+]

@@ -9,6 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  provider: ^6.1.2
+  syncfusion_flutter_charts: ^26.1.41
+  syncfusion_flutter_core: ^26.1.41
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
@@ -17,3 +21,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/biometrics_90d.json
+    - assets/journals.json
