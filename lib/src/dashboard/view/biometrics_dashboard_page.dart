@@ -48,24 +48,32 @@ class _DashboardBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 720;
-        final scrollable = constraints.maxHeight < 720;
+        // Enhanced responsive breakpoints
+        final isMobile = constraints.maxWidth < 600;
+        final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+        final isDesktop = constraints.maxWidth >= 1024;
+
+        // Better height detection for scrollable content
+        final shouldScroll = constraints.maxHeight < 800 || isMobile;
+
         final EdgeInsets padding = EdgeInsets.symmetric(
-          horizontal: compact ? 12 : 24,
-          vertical: compact ? 12 : 24,
+          horizontal: isMobile ? 16 : (isTablet ? 24 : 32),
+          vertical: isMobile ? 16 : (isTablet ? 20 : 24),
         );
+
         final content = _DashboardContent(
           controller: controller,
-          compact: compact,
-          scrollable: scrollable,
+          isMobile: isMobile,
+          isTablet: isTablet,
+          isDesktop: isDesktop,
+          shouldScroll: shouldScroll,
+          availableHeight: constraints.maxHeight,
         );
-        if (scrollable) {
+
+        if (shouldScroll) {
           return SingleChildScrollView(
             padding: padding,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: content,
-            ),
+            child: content,
           );
         }
         return Padding(
@@ -80,13 +88,19 @@ class _DashboardBody extends StatelessWidget {
 class _DashboardContent extends StatelessWidget {
   const _DashboardContent({
     required this.controller,
-    required this.compact,
-    required this.scrollable,
+    required this.isMobile,
+    required this.isTablet,
+    required this.isDesktop,
+    required this.shouldScroll,
+    required this.availableHeight,
   });
 
   final BiometricsDashboardController controller;
-  final bool compact;
-  final bool scrollable;
+  final bool isMobile;
+  final bool isTablet;
+  final bool isDesktop;
+  final bool shouldScroll;
+  final double availableHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -94,56 +108,133 @@ class _DashboardContent extends StatelessWidget {
     final focusSample = controller.sampleNearestTo(controller.focusDate);
     final stats = controller.statsNearestTo(controller.focusDate);
 
+    // Calculate optimal chart height based on screen size and content
+    final double chartSectionHeight = _calculateChartHeight();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _HeaderRow(
           controller: controller,
-          compact: compact,
+          isMobile: isMobile,
+          isTablet: isTablet,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: isMobile ? 12 : 16),
         _RangeSelector(
           controller: controller,
-          compact: compact,
+          isMobile: isMobile,
+          isTablet: isTablet,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: isMobile ? 12 : 16),
         _FocusSummaryCard(
           sample: focusSample,
           stats: stats,
-          compact: compact,
+          isMobile: isMobile,
+          isTablet: isTablet,
         ),
-        const SizedBox(height: 16),
-        if (scrollable)
+        SizedBox(height: isMobile ? 16 : 20),
+        if (shouldScroll)
           SizedBox(
-            height: compact ? 600 : 680,
-            child: _ChartsSection(controller: controller),
+            height: chartSectionHeight,
+            child: _ChartsSection(
+              controller: controller,
+              isMobile: isMobile,
+              isTablet: isTablet,
+            ),
           )
         else
-          Expanded(child: _ChartsSection(controller: controller)),
-        const SizedBox(height: 12),
+          Expanded(
+            child: _ChartsSection(
+              controller: controller,
+              isMobile: isMobile,
+              isTablet: isTablet,
+            ),
+          ),
+        SizedBox(height: isMobile ? 12 : 16),
         if (controller.journals.isNotEmpty)
-          _JournalList(journals: controller.journals),
-        if (controller.journals.isNotEmpty) const SizedBox(height: 12),
-        Text(
-          'Pan or pinch to explore. Hover or tap charts to sync metrics.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.outline,
+          _JournalList(
+            journals: controller.journals,
+            isMobile: isMobile,
+          ),
+        if (controller.journals.isNotEmpty) SizedBox(height: isMobile ? 12 : 16),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: isMobile ? 8 : 4),
+          child: Text(
+            isMobile
+                ? 'Tap charts to sync metrics.'
+                : 'Pan or pinch to explore. Hover or tap charts to sync metrics.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.outline,
+              fontSize: isMobile ? 12 : null,
+            ),
+            textAlign: isMobile ? TextAlign.center : TextAlign.start,
           ),
         ),
       ],
     );
   }
+
+  double _calculateChartHeight() {
+    if (isMobile) {
+      // Mobile: each chart gets about 200-250px, total ~700px
+      return 700;
+    } else if (isTablet) {
+      // Tablet: slightly larger charts
+      return 850;
+    } else {
+      // Desktop: full experience
+      return 900;
+    }
+  }
 }
 
 class _HeaderRow extends StatelessWidget {
-  const _HeaderRow({required this.controller, required this.compact});
+  const _HeaderRow({
+    required this.controller,
+    required this.isMobile,
+    required this.isTablet,
+  });
 
   final BiometricsDashboardController controller;
-  final bool compact;
+  final bool isMobile;
+  final bool isTablet;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Mobile: Stack vertically for better readability
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Biometrics Overview',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'HRV, resting HR, and activity trends with journal context.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _LargeDatasetToggle(
+            value: controller.simulateLargeDataset,
+            onChanged: (value) => controller.toggleLargeDataset(value),
+            isMobile: isMobile,
+            isTablet: isTablet,
+          ),
+        ],
+      );
+    }
+
+    // Tablet & Desktop: Horizontal layout
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -171,7 +262,8 @@ class _HeaderRow extends StatelessWidget {
         _LargeDatasetToggle(
           value: controller.simulateLargeDataset,
           onChanged: (value) => controller.toggleLargeDataset(value),
-          compact: compact,
+          isMobile: isMobile,
+          isTablet: isTablet,
         ),
       ],
     );
@@ -181,29 +273,36 @@ class _HeaderRow extends StatelessWidget {
 class _RangeSelector extends StatelessWidget {
   const _RangeSelector({
     required this.controller,
-    required this.compact,
+    required this.isMobile,
+    required this.isTablet,
   });
 
   final BiometricsDashboardController controller;
-  final bool compact;
+  final bool isMobile;
+  final bool isTablet;
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 12,
+      spacing: isMobile ? 8 : 12,
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
           'Range',
-          style: Theme.of(context).textTheme.titleMedium,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontSize: isMobile ? 15 : null,
+              ),
         ),
         SegmentedButton<RangeOption>(
           segments: RangeOption.values
               .map(
                 (option) => ButtonSegment<RangeOption>(
                   value: option,
-                  label: Text(option.label),
+                  label: Text(
+                    option.label,
+                    style: TextStyle(fontSize: isMobile ? 13 : null),
+                  ),
                 ),
               )
               .toList(),
@@ -212,8 +311,8 @@ class _RangeSelector extends StatelessWidget {
           style: ButtonStyle(
             padding: WidgetStateProperty.resolveWith(
               (states) => EdgeInsets.symmetric(
-                horizontal: compact ? 12 : 20,
-                vertical: 10,
+                horizontal: isMobile ? 10 : (isTablet ? 16 : 20),
+                vertical: isMobile ? 8 : 10,
               ),
             ),
           ),
@@ -232,16 +331,38 @@ class _LargeDatasetToggle extends StatelessWidget {
   const _LargeDatasetToggle({
     required this.value,
     required this.onChanged,
-    required this.compact,
+    required this.isMobile,
+    required this.isTablet,
   });
 
   final bool value;
   final ValueChanged<bool> onChanged;
-  final bool compact;
+  final bool isMobile;
+  final bool isTablet;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Mobile: Horizontal compact layout
+    if (isMobile) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Large dataset',
+            style: theme.textTheme.labelMedium?.copyWith(fontSize: 13),
+          ),
+          const SizedBox(width: 8),
+          Switch.adaptive(
+            value: value,
+            onChanged: onChanged,
+          ),
+        ],
+      );
+    }
+
+    // Tablet & Desktop: Vertical layout with description
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -256,12 +377,11 @@ class _LargeDatasetToggle extends StatelessWidget {
               value: value,
               onChanged: onChanged,
             ),
-            if (!compact) const SizedBox(width: 8),
-            if (!compact)
-              Text(
-                'Simulate 10k+ points',
-                style: theme.textTheme.bodySmall,
-              ),
+            const SizedBox(width: 8),
+            Text(
+              'Simulate 10k+ points',
+              style: theme.textTheme.bodySmall,
+            ),
           ],
         ),
       ],
@@ -273,12 +393,14 @@ class _FocusSummaryCard extends StatelessWidget {
   const _FocusSummaryCard({
     required this.sample,
     required this.stats,
-    required this.compact,
+    required this.isMobile,
+    required this.isTablet,
   });
 
   final BiometricSample? sample;
   final RollingStatsPoint? stats;
-  final bool compact;
+  final bool isMobile;
+  final bool isTablet;
 
   @override
   Widget build(BuildContext context) {
@@ -304,25 +426,47 @@ class _FocusSummaryCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(compact ? 12 : 20),
+        padding: EdgeInsets.all(isMobile ? 14 : (isTablet ? 16 : 20)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               dateLabel,
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: isMobile ? 15 : null,
+              ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: isMobile ? 10 : 12),
             Wrap(
-              spacing: 16,
-              runSpacing: 12,
+              spacing: isMobile ? 10 : 16,
+              runSpacing: isMobile ? 10 : 12,
               children: [
-                _MetricChip(label: 'HRV', value: hrvValue),
-                _MetricChip(label: 'Resting HR', value: rhrValue),
-                _MetricChip(label: 'Steps', value: stepsValue),
-                _MetricChip(label: 'Sleep score', value: sleepValue),
-                _MetricChip(label: '7d mean ±1σ', value: statsLabel),
+                _MetricChip(
+                  label: 'HRV',
+                  value: hrvValue,
+                  isMobile: isMobile,
+                ),
+                _MetricChip(
+                  label: 'Resting HR',
+                  value: rhrValue,
+                  isMobile: isMobile,
+                ),
+                _MetricChip(
+                  label: 'Steps',
+                  value: stepsValue,
+                  isMobile: isMobile,
+                ),
+                _MetricChip(
+                  label: 'Sleep score',
+                  value: sleepValue,
+                  isMobile: isMobile,
+                ),
+                _MetricChip(
+                  label: '7d mean ±1σ',
+                  value: statsLabel,
+                  isMobile: isMobile,
+                ),
               ],
             ),
           ],
@@ -333,19 +477,27 @@ class _FocusSummaryCard extends StatelessWidget {
 }
 
 class _MetricChip extends StatelessWidget {
-  const _MetricChip({required this.label, required this.value});
+  const _MetricChip({
+    required this.label,
+    required this.value,
+    required this.isMobile,
+  });
 
   final String label;
   final String value;
+  final bool isMobile;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 14,
+        vertical: isMobile ? 8 : 10,
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(isMobile ? 10 : 12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,14 +505,18 @@ class _MetricChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: theme.textTheme.labelMedium
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: isMobile ? 11 : null,
+            ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: isMobile ? 3 : 4),
           Text(
             value,
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: isMobile ? 14 : null,
+            ),
           ),
         ],
       ),
@@ -369,9 +525,15 @@ class _MetricChip extends StatelessWidget {
 }
 
 class _ChartsSection extends StatefulWidget {
-  const _ChartsSection({required this.controller});
+  const _ChartsSection({
+    required this.controller,
+    required this.isMobile,
+    required this.isTablet,
+  });
 
   final BiometricsDashboardController controller;
+  final bool isMobile;
+  final bool isTablet;
 
   @override
   State<_ChartsSection> createState() => _ChartsSectionState();
@@ -440,6 +602,8 @@ class _ChartsSectionState extends State<_ChartsSection> {
       color: Theme.of(context).colorScheme.secondary,
     );
 
+    final chartSpacing = widget.isMobile ? 12.0 : 16.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -458,9 +622,11 @@ class _ChartsSectionState extends State<_ChartsSection> {
             onAnnotationTap: (entry) => _showJournal(context, entry),
             journals: controller.journals,
             axisLabelFormatter: (value) => value.toStringAsFixed(0),
+            isMobile: widget.isMobile,
+            isTablet: widget.isTablet,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: chartSpacing),
         Expanded(
           child: _MetricChart(
             title: 'Resting Heart Rate (bpm)',
@@ -473,9 +639,11 @@ class _ChartsSectionState extends State<_ChartsSection> {
             plotBands: plotBands,
             controller: controller,
             axisLabelFormatter: (value) => value.toStringAsFixed(0),
+            isMobile: widget.isMobile,
+            isTablet: widget.isTablet,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: chartSpacing),
         Expanded(
           child: _MetricChart(
             title: 'Steps',
@@ -488,6 +656,8 @@ class _ChartsSectionState extends State<_ChartsSection> {
             plotBands: plotBands,
             controller: controller,
             axisLabelFormatter: (value) => NumberFormat.compact().format(value),
+            isMobile: widget.isMobile,
+            isTablet: widget.isTablet,
           ),
         ),
       ],
@@ -537,6 +707,8 @@ class _MetricChart extends StatefulWidget {
     this.onAnnotationTap,
     this.journals = const [],
     required this.axisLabelFormatter,
+    required this.isMobile,
+    required this.isTablet,
   });
 
   final String title;
@@ -552,6 +724,8 @@ class _MetricChart extends StatefulWidget {
   final ValueChanged<JournalEntry>? onAnnotationTap;
   final List<JournalEntry> journals;
   final String Function(double value) axisLabelFormatter;
+  final bool isMobile;
+  final bool isTablet;
 
   @override
   State<_MetricChart> createState() => _MetricChartState();
@@ -593,6 +767,13 @@ class _MetricChartState extends State<_MetricChart> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final axisLineColor = theme.colorScheme.outlineVariant;
+
+    // Responsive text sizing for axes
+    final axisLabelStyle = TextStyle(
+      fontSize: widget.isMobile ? 10 : (widget.isTablet ? 11 : 12),
+      color: theme.colorScheme.onSurface,
+    );
+
     final xAxis = DateTimeAxis(
       plotBands: widget.plotBands,
       edgeLabelPlacement: EdgeLabelPlacement.shift,
@@ -604,6 +785,7 @@ class _MetricChartState extends State<_MetricChart> {
       rangeController: widget.controller.rangeController,
       minimum: widget.controller.dataStart,
       maximum: widget.controller.dataEnd,
+      labelStyle: axisLabelStyle,
     );
 
     final yAxis = NumericAxis(
@@ -618,10 +800,13 @@ class _MetricChartState extends State<_MetricChart> {
       minimum: widget.minY == double.infinity ? null : widget.minY * 0.9,
       maximum: widget.maxY == double.negativeInfinity ? null : widget.maxY * 1.05,
       numberFormat: NumberFormat.compact(),
+      labelStyle: axisLabelStyle,
       axisLabelFormatter: (args) {
         return ChartAxisLabel(
           widget.axisLabelFormatter(args.value.toDouble()),
-          args.textStyle,
+          args.textStyle?.copyWith(
+            fontSize: widget.isMobile ? 10 : (widget.isTablet ? 11 : 12),
+          ),
         );
       },
     );
@@ -682,10 +867,12 @@ class _MetricChartState extends State<_MetricChart> {
       children: [
         Text(
           widget.title,
-          style: theme.textTheme.titleMedium
-              ?.copyWith(fontWeight: FontWeight.w600),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            fontSize: widget.isMobile ? 14 : (widget.isTablet ? 15 : null),
+          ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: widget.isMobile ? 6 : 8),
         Expanded(
           child: SfCartesianChart(
             annotations: annotations,
@@ -694,6 +881,7 @@ class _MetricChartState extends State<_MetricChart> {
             zoomPanBehavior: widget.zoomPanBehavior,
             primaryXAxis: xAxis,
             primaryYAxis: yAxis,
+            margin: EdgeInsets.all(widget.isMobile ? 4 : 8),
             onActualRangeChanged: (args) {
               if (args.orientation == AxisOrientation.horizontal) {
                 final start = _toDateTime(args.visibleMin);
@@ -796,9 +984,13 @@ List<PlotBand> _buildPlotBands({
 }
 
 class _JournalList extends StatelessWidget {
-  const _JournalList({required this.journals});
+  const _JournalList({
+    required this.journals,
+    required this.isMobile,
+  });
 
   final List<JournalEntry> journals;
+  final bool isMobile;
 
   @override
   Widget build(BuildContext context) {
@@ -806,41 +998,47 @@ class _JournalList extends StatelessWidget {
     final dateFormat = DateFormat.yMMMd();
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isMobile ? 14 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Journal Highlights',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: isMobile ? 15 : null,
+              ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: isMobile ? 10 : 12),
             for (final entry in journals)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: EdgeInsets.symmetric(vertical: isMobile ? 6 : 8),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       Icons.circle,
-                      size: 10,
+                      size: isMobile ? 8 : 10,
                       color: theme.colorScheme.primary.withValues(alpha: 0.7),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: isMobile ? 10 : 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             '${dateFormat.format(entry.date)} • Mood ${entry.mood}/5',
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: isMobile ? 13 : null,
+                            ),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: isMobile ? 3 : 4),
                           Text(
                             entry.note,
-                            style: theme.textTheme.bodyMedium,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: isMobile ? 13 : null,
+                            ),
                           ),
                         ],
                       ),
