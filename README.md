@@ -5,7 +5,7 @@ An interactive Flutter Web dashboard that visualises HRV, resting heart rate, an
 ## Getting Started
 
 - `flutter pub get`
-- `flutter run -d chrome` (app boots with simulated 700–1200 ms asset latency and ~10 % random failures; use the retry control to recover)
+- `flutter run -d chrome` (app boots with simulated 700–1200 ms asset latency and fixed failure at every 3rd attempt to fetch data ; use the retry control to recover)
 - `flutter test` to run unit and widget coverage
 
 ## Features
